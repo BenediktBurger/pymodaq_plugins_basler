@@ -36,7 +36,7 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
     ]
     params[next((i for i, item in enumerate(params) if item["name"] == "camera_list"), None)]['limits'] = camera_list  # type: ignore
 
-    def init_controller(self):
+    def init_controller(self) -> DartCamera:
         # Define the camera controller.
         # Use any argument necessary (serial_number, camera index, etc.) depending on the camera
 
@@ -95,7 +95,7 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
         initialized = True
         return info, initialized
 
-    def commit_settings(self, param: Parameter):
+    def commit_settings(self, param: Parameter) -> None:
         """Apply the consequences of a change of value in the detector settings
 
         Parameters
@@ -111,7 +111,7 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
         else:
             super().commit_settings(param=param)
 
-    def grab_data(self, Naverage=1, live=False, **kwargs):
+    def grab_data(self, Naverage: int = 1, live: bool = False, **kwargs) -> None:
         if live:
             self._prepare_view()
             self.controller.start_grabbing()
@@ -122,7 +122,7 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
     def stop(self):
         self.controller.stop_grabbing()
 
-    def callback(self, array):
+    def callback(self, array) -> None:
         self.dte_signal.emit(DataToExport('Camera', data=[DataFromPlugins(
             name='Camera Image',
             data=[array],

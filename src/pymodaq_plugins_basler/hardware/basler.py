@@ -1,6 +1,6 @@
 
 import logging
-from typing import Callable, Optional
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 from pypylon import pylon
 from qtpy import QtCore
@@ -64,12 +64,12 @@ class DartCamera:
 
     # Methods in the style of pylablib
     @staticmethod
-    def list_cameras():
+    def list_cameras() -> List[pylon.InstantCamera]:
         """List all available cameras as camera info objects."""
         tlFactory = pylon.TlFactory.GetInstance()
         return tlFactory.EnumerateDevices()
 
-    def get_device_info(self):
+    def get_device_info(self) -> List[Any]:
         """Get camera information.
 
         Return tuple ``(name, model, serial, devclass, devversion, vendor, friendly_name, user_name,
@@ -80,15 +80,15 @@ class DartCamera:
                 devInfo.GetDeviceClass(), devInfo.GetDeviceVersion(), devInfo.GetVendorName(),
                 devInfo.GetFriendlyName(), devInfo.GetUserDefinedName(), None]
 
-    def get_exposure(self):
+    def get_exposure(self) -> float:
         """Get the exposure time in s."""
         return self.camera.ExposureTime.GetValue() / 1e6
 
-    def set_exposure(self, value: float):
+    def set_exposure(self, value: float) -> None:
         """Set the exposure time in s."""
         self.camera.ExposureTime.SetValue(value * 1e6)
 
-    def get_roi(self) -> tuple[float, float, float, float, int, int]:
+    def get_roi(self) -> Tuple[float, float, float, float, int, int]:
         """Return x0, width, y0, height, xbin, ybin."""
         x0 = self.camera.OffsetX.GetValue()
         width = self.camera.Width.GetValue()
@@ -96,7 +96,7 @@ class DartCamera:
         height = self.camera.Height.GetValue()
         xbin = self.camera.BinningHorizontal.GetValue()
         ybin = self.camera.BinningVertical.GetValue()
-        return x0, x0+width, y0, y0+height, xbin, ybin
+        return x0, x0 + width, y0, y0 + height, xbin, ybin
 
     def set_roi(self, hstart: int, hend: int, vstart: int, vend: int, hbin: int, vbin: int) -> None:
         camera = self.camera
@@ -106,15 +106,15 @@ class DartCamera:
         vstart = detector_clamp(vstart, m_height) // inc * inc
         # Set the offset to 0 first, to allow full range of width values.
         camera.OffsetX.SetValue(0)
-        camera.Width.SetValue((detector_clamp(hend, m_width)-hstart) // inc * inc)
+        camera.Width.SetValue((detector_clamp(hend, m_width) - hstart) // inc * inc)
         camera.OffsetX.SetValue(hstart)
         camera.OffsetY.SetValue(0)
-        camera.Height.SetValue((detector_clamp(vend, m_height)-vstart) // inc * inc)
+        camera.Height.SetValue((detector_clamp(vend, m_height) - vstart) // inc * inc)
         camera.OffsetY.SetValue(vstart)
         camera.BinningHorizontal.SetValue(int(hbin))
         camera.BinningVertical.SetValue(int(vbin))
 
-    def get_detector_size(self) -> tuple[int, int]:
+    def get_detector_size(self) -> Tuple[int, int]:
         """Return width and height of detector in pixels."""
         return self.camera.SensorWidth.GetValue(), self.camera.SensorHeight.GetValue()
 
@@ -151,12 +151,12 @@ class DartCamera:
     def read_newest_image(self):
         return self.get_one()
 
-    def close(self):
+    def close(self) -> None:
         self.camera.Close()
         self.camera.DetachDevice()
 
     # additional methods, for use in the code
-    def get_one(self, timeout_ms=1000):
+    def get_one(self, timeout_ms: int = 1000):
         """Get one image and return the (numpy) array of it."""
         args = []
         if timeout_ms is not None:
@@ -170,7 +170,7 @@ class DartCamera:
         else:
             raise TimeoutError("Grabbing exceeded timeout")
 
-    def start_grabbing(self, max_frame_rate=1000):
+    def start_grabbing(self, max_frame_rate=1000) -> None:
         """Start continuously to grab data.
 
         Whenever a grab succeeded, the callback defined in :meth:`set_callback` is called.
@@ -181,7 +181,7 @@ class DartCamera:
             pylon.GrabLoop_ProvidedByInstantCamera
         )
 
-    def stop_grabbing(self):
+    def stop_grabbing(self) -> None:
         self.camera.StopGrabbing()
 
 
@@ -196,13 +196,13 @@ class ConfigurationHandler(pylon.ConfigurationEventHandler):
         """Signals for the CameraEventHandler."""
         cameraRemoved = QtCore.pyqtSignal(object)
 
-    def OnOpened(self, camera):
+    def OnOpened(self, camera: pylon.InstantCamera) -> None:
         """Standard configuration after being opened."""
         camera.PixelFormat.SetValue('Mono12')
         camera.GainAuto.SetValue('Off')
         camera.ExposureAuto.SetValue('Off')
 
-    def OnCameraDeviceRemoved(self, camera):
+    def OnCameraDeviceRemoved(self, camera: pylon.InstantCamera) -> None:
         """Emit a signal, that the camera is removed."""
         self.signals.cameraRemoved.emit(camera)
 
@@ -218,11 +218,11 @@ class ImageEventHandler(pylon.ImageEventHandler):
         """Signals for the ImageEventHandler."""
         imageGrabbed = QtCore.pyqtSignal(object)
 
-    def OnImageSkipped(self, camera, countOfSkippedImages):
+    def OnImageSkipped(self, camera: pylon.InstantCamera, countOfSkippedImages: int) -> None:
         """What to do if images are skipped."""
         log.warning(f"{countOfSkippedImages} images have been skipped.")
 
-    def OnImageGrabbed(self, camera, grabResult: pylon.GrabResult):
+    def OnImageGrabbed(self, camera: pylon.InstantCamera, grabResult: pylon.GrabResult) -> None:
         """Process a grabbed image."""
         if grabResult.GrabSucceeded():
             self.signals.imageGrabbed.emit(grabResult.GetArray())
@@ -231,6 +231,6 @@ class ImageEventHandler(pylon.ImageEventHandler):
                          f"{grabResult.GetErrorDescription()}."))
 
 
-def detector_clamp(value: float | int, max_value: int) -> int:
+def detector_clamp(value: Union[float, int], max_value: int) -> int:
     """Clamp a value to possible detector position."""
     return max(0, min(int(value), max_value))
