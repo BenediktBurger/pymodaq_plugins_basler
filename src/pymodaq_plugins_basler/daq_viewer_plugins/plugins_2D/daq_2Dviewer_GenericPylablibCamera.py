@@ -206,7 +206,7 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
             self.dte_signal_temp.emit(
                 DataToExport('Camera',
                              data=[DataFromPlugins(name='Camera Image',
-                                                   data=[np.squeeze(mock_data)]
+                                                   data=[np.squeeze(mock_data)],
                                                    dim=self.data_shape,
                                                    labels=[f'Camera_{self.data_shape}'],
                                                    axes=self.axes)]))
