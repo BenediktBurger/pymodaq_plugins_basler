@@ -5,12 +5,13 @@ package-url = 'https://github.com/BenediktBurger/pymodaq_plugins_basler'
 description = 'PyMoDAQ plugins for cameras of Basler'
 
 author = 'Benedikt Burger'
+author-email = "Benedikt.Burger@physik.tu-darmstadt.de"
 license = 'MIT'
 
 [plugin-install]
 #packages required for your plugin:
 packages-required = [
-    'pymodaq>=4.1.0',
+    'pymodaq>=4.0.0',
     'numpy',  # for Basler camera
     'pypylon',
 ]
