@@ -25,16 +25,16 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
 
     params = comon_parameters + [
         {'title': 'Camera:', 'name': 'camera_list', 'type': 'list', 'limits': []},
-        {'title': 'Camera model:', 'name': 'camera_info', 'type': 'str', 'value': '', 'readonly': True},
-        {'title': 'Update ROI', 'name': 'update_roi', 'type': 'bool_push', 'value': False},
-        {'title': 'Clear ROI+Bin', 'name': 'clear_roi', 'type': 'bool_push', 'value': False},
-        {'title': 'Binning', 'name': 'binning', 'type': 'list', 'limits': [1, 2]},
-        {'title': 'Image width', 'name': 'hdet', 'type': 'int', 'value': 1, 'readonly': True},
-        {'title': 'Image height', 'name': 'vdet', 'type': 'int', 'value': 1, 'readonly': True},
+        {'title': 'Camera model:', 'name': 'camera_info', 'type': 'str', 'value': '', 'readonly': True, 'default': ''},
+        {'title': 'Update ROI', 'name': 'update_roi', 'type': 'bool_push', 'value': False, 'default': False},
+        {'title': 'Clear ROI+Bin', 'name': 'clear_roi', 'type': 'bool_push', 'value': False, 'default': False},
+        {'title': 'Binning', 'name': 'binning', 'type': 'list', 'limits': [1, 2], 'default': 1},
+        {'title': 'Image width', 'name': 'hdet', 'type': 'int', 'value': 1, 'readonly': True, 'default': 1},
+        {'title': 'Image height', 'name': 'vdet', 'type': 'int', 'value': 1, 'readonly': True, 'default': 1},
         {'title': 'Timing', 'name': 'timing_opts', 'type': 'group', 'children':
-            [{'title': 'Exposure Time (ms)', 'name': 'exposure_time', 'type': 'int', 'value': 1},
-             {'title': 'Compute FPS', 'name': 'fps_on', 'type': 'bool', 'value': True},
-             {'title': 'FPS', 'name': 'fps', 'type': 'float', 'value': 0.0, 'readonly': True}]
+            [{'title': 'Exposure Time (ms)', 'name': 'exposure_time', 'type': 'int', 'value': 1, 'default': 1},
+             {'title': 'Compute FPS', 'name': 'fps_on', 'type': 'bool', 'value': True, 'default': True},
+             {'title': 'FPS', 'name': 'fps', 'type': 'float', 'value': 0.0, 'readonly': True, 'default': 0.0}]
          }
     ]
     callback_signal = QtCore.Signal()
@@ -46,7 +46,7 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
 
     def ini_attributes(self):
         self.controller: None
-
+        self.pixel_width = None  # pixel size in microns
         self.x_axis = None
         self.y_axis = None
         self.last_tick = 0.0  # time counter used to compute FPS
@@ -164,6 +164,10 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
         self.callback_thread.callback = callback
         self.callback_thread.start()
 
+        # Check if pixel width is available
+        if 'PixelWidth' in self.controller.get_all_attributes():
+            self.pixel_width = self.controller.get_attribute_value('PixelWidth')
+
         self._prepare_view()
 
         info = "Initialized camera"
@@ -173,14 +177,11 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
     def _prepare_view(self):
         """Preparing a data viewer by emitting temporary data. Typically, needs to be called whenever the
         ROIs are changed"""
-        # wx = self.settings.child('rois', 'width').value()
-        # wy = self.settings.child('rois', 'height').value()
-        # bx = self.settings.child('rois', 'x_binning').value()
-        # by = self.settings.child('rois', 'y_binning').value()
-        #
-        # sizex = wx // bx
-        # sizey = wy // by
-        (hstart, hend, vstart, vend, *_) = self.controller.get_roi()
+        (hstart, hend, vstart, vend, *binning) = self.controller.get_roi()
+        try:
+            xbin, ybin = binning
+        except ValueError:  # some Pylablib `get_roi` do return just four values instead of six
+            xbin = ybin = 1
         height = hend - hstart
         width = vend - vstart
 
@@ -188,11 +189,18 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
         self.settings.child('vdet').setValue(height)
         mock_data = np.zeros((width, height))
 
-        self.x_axis = Axis(data=np.linspace(0, width, width, endpoint=False), label='Pixels', index=0)
+        if self.pixel_width:  # if pixel_width is defined
+            scaling = self.pixel_width
+            unit = 'um'
+        else:
+            scaling = 1
+            unit = 'Pxls'
+
+        self.x_axis = Axis(offset = vstart * scaling, scaling=scaling * xbin, size=width // xbin, label="X", units=unit, index=0)
 
         if width != 1 and height != 1:
             data_shape = 'Data2D'
-            self.y_axis = Axis(data=np.linspace(0, height, height, endpoint=False), label='Pixels', index=1)
+            self.y_axis = Axis(offset= hstart * scaling, scaling=scaling * ybin, size=height // ybin, label='Y', units=unit, index=1)
             self.axes = [self.x_axis, self.y_axis]
 
         else:
