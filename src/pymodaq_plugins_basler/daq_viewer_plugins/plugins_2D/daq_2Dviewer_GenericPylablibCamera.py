@@ -1,8 +1,3 @@
-"""
-Copied (and slightly modified) from https://github.com/rgeneaux/pymodaq_plugins_test_pylablib
-"""
-
-
 from pymodaq.utils.daq_utils import ThreadCommand
 from pymodaq.utils.data import DataFromPlugins, Axis, DataToExport
 from pymodaq.control_modules.viewer_utility_classes import DAQ_Viewer_base, comon_parameters, main
