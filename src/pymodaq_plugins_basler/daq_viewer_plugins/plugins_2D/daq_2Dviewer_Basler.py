@@ -21,6 +21,7 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
     params = DAQ_2DViewer_GenericPylablibCamera.params + [
         {'title': 'Automatic exposure:', 'name': 'auto_exposure', 'type': 'bool', 'value': False},
         {'title': 'Gain (dB)', 'name': 'gain', 'type': 'float', 'value': 0, 'limits': [0, 18]},
+        {'title': 'Pixel size (um)', 'name': 'pixel_length', 'type': 'float', 'value': 1, 'default' : 1, 'visible': False},
     ]
     params[next((i for i, item in enumerate(params) if item["name"] == "camera_list"), None)]['limits'] = camera_list  # type: ignore
 
@@ -57,6 +58,12 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
         # Initialize camera class
         self.ini_detector_init(old_controller=controller,
                                new_controller=self.init_controller())
+
+        # Check if pixel length is known
+        if self.controller.pixel_length is None:
+            model = self.controller.camera.GetDeviceInfo().GetModelName()
+            self.emit_status(ThreadCommand('Update_Status', [(f"No pixel length known for camera model '{model}', defaulting to user-chosen one"), 'log']))
+            self.settings.child('pixel_length').show()
 
         # Get camera name
         self.settings.child('camera_info').setValue(self.controller.get_device_info()[1])
@@ -96,6 +103,8 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
                 "Continuous" if self.settings['auto_exposure'] else "Off")
         elif param.name() == "gain":
             getattr(self.controller.camera, self.controller.gain_name).SetValue(param.value())
+        elif param.name() == "pixel_length":
+            self.controller.pixel_length = param.value()
         else:
             super().commit_settings(param=param)
 

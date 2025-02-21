@@ -17,6 +17,8 @@ pixel_lengths: dict[str, float] = {
     "daA1280-54um": 3.75,
     "daA2500-14um": 2.2,
     "daA3840-45um": 2,
+    "acA640-120gm": 5.6,
+    "acA645-100gm": 5.6,
 }
 
 
@@ -253,16 +255,20 @@ class DartCamera:
     @property
     def pixel_length(self) -> float:
         """Get the pixel length of the camera in µm.
-        
-        :raises: KeyError if the pixel length of the specific model is not known
+
+        Returns None if the pixel length of the specific model is not known
         """
         if self._pixel_length is None:
             model = self.camera.GetDeviceInfo().GetModelName()
             try:
                 self._pixel_length = pixel_lengths[model]
             except KeyError:
-                raise KeyError(f"No pixel length known for camera model '{model}'.")
+                self._pixel_length = None
         return self._pixel_length
+
+    @pixel_length.setter
+    def pixel_length(self, value):
+        self._pixel_length = value
 
 
 class ConfigurationHandler(pylon.ConfigurationEventHandler):

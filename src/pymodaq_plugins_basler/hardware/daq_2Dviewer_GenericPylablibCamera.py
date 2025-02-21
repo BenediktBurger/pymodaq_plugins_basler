@@ -40,7 +40,6 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
 
     def ini_attributes(self):
         self.controller: None
-        self.pixel_width = None  # pixel size in microns
         self.x_axis = None
         self.y_axis = None
         self.last_tick = 0.0  # time counter used to compute FPS
@@ -156,10 +155,6 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
         self.callback_thread.callback = callback
         self.callback_thread.start()
 
-        # Check if pixel width is available
-        if 'PixelWidth' in self.controller.get_all_attributes():
-            self.pixel_width = self.controller.get_attribute_value('PixelWidth')
-
         self._prepare_view()
 
         info = "Initialized camera"
@@ -181,12 +176,12 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
         self.settings.child('vdet').setValue(height)
         mock_data = np.zeros((width, height))
 
-        if self.pixel_width:  # if pixel_width is defined
-            scaling = self.pixel_width
+        if self.controller.pixel_length:  # if pixel_width is defined
+            scaling = self.controller.pixel_length
             unit = 'um'
         else:
             scaling = 1
-            unit = 'Pxls'
+            unit = 'pixels'
 
         self.x_axis = Axis(offset = vstart * scaling, scaling=scaling * xbin, size=width // xbin, label="X", units=unit, index=0)
 
