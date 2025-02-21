@@ -4,13 +4,7 @@ from pymodaq.utils.data import DataFromPlugins, DataToExport
 from pymodaq.utils.daq_utils import ThreadCommand
 from pymodaq.control_modules.viewer_utility_classes import main
 
-try:
-    from pymodaq_plugins_pylablib_camera.daq_viewer_plugins.plugins_2D.daq_2Dviewer_GenericPylablibCamera import DAQ_2DViewer_GenericPylablibCamera
-    # available here: https://github.com/rgeneaux/pymodaq_plugins_test_pylablib
-except ModuleNotFoundError:
-    # Fall back to the internal version
-    from pymodaq_plugins_basler.daq_viewer_plugins.plugins_2D.daq_2Dviewer_GenericPylablibCamera import DAQ_2DViewer_GenericPylablibCamera
-
+from pymodaq_plugins_basler.hardware.daq_2Dviewer_GenericPylablibCamera import DAQ_2DViewer_GenericPylablibCamera
 from pymodaq_plugins_basler.hardware.basler import DartCamera
 
 
@@ -20,16 +14,10 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
     controller: DartCamera
     live_mode_available = True
 
-    # Generate a  **list**  of available cameras.
-    # Two cases:
-    # 1) Some pylablib classes have a .list_cameras method, which returns a list of available cameras, so we can just use that
-    # 2) Other classes have a .get_cameras_number(), which returns the number of connected cameras
-    #    in this case we can define the list as self.camera_list = [*range(number_of_cameras)]
-
     # For Basler, this returns a list of friendly names
     camera_list = [cam.GetFriendlyName() for cam in DartCamera.list_cameras()]
 
-    # Update the params (nothing to change here)
+    # Update the params
     params = DAQ_2DViewer_GenericPylablibCamera.params + [
         {'title': 'Automatic exposure:', 'name': 'auto_exposure', 'type': 'bool', 'value': False},
         {'title': 'Gain (dB)', 'name': 'gain', 'type': 'float', 'value': 0, 'limits': [0, 18]},
@@ -107,7 +95,7 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
             self.controller.camera.ExposureAuto.SetValue(
                 "Continuous" if self.settings['auto_exposure'] else "Off")
         elif param.name() == "gain":
-            self.controller.camera.Gain.SetValue(param.value())
+            getattr(self.controller.camera, self.controller.gain_name).SetValue(param.value())
         else:
             super().commit_settings(param=param)
 
@@ -134,4 +122,4 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
 
 
 if __name__ == '__main__':
-    main(__file__)
+    main(__file__, init=False)

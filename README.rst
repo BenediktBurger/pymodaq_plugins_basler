@@ -20,6 +20,7 @@ Authors
 =======
 
 * Benedikt Burger
+* Romain Geneaux
 
 
 Instruments

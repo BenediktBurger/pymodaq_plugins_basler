@@ -37,6 +37,9 @@ class DartCamera:
         # create camera object
         self.tlFactory = pylon.TlFactory.GetInstance()
         self.camera = pylon.InstantCamera()
+        self.exposure_name = ""
+        self.gain_name = ""
+
         # register configuration event handler
         self.configurationEventHandler = ConfigurationHandler()
         self.camera.RegisterConfiguration(
@@ -61,6 +64,26 @@ class DartCamera:
         self.camera.Attach(device)
         self.camera.Open()
         self.attributes["PixelWidth"] = self.pixel_length
+        self.check_attribute_names()
+
+    def check_attribute_names(self):
+        possible_exposures = ["ExposureTime", "ExposureTimeAbs"]
+        for exp in possible_exposures:
+            try:
+                if hasattr(self.camera, exp):
+                    self.exposure_name = exp
+                    break
+            except pylon.LogicalErrorException:
+                pass
+
+        possible_gains = ["Gain", "GainRaw"]
+        for gain in possible_gains:
+            try:
+                if hasattr(self.camera, gain):
+                    self.gain_name = gain
+                    break
+            except pylon.LogicalErrorException:
+                pass
 
     def set_callback(
         self, callback: Callable[[NDArray], None], replace_all: bool = True
@@ -105,11 +128,11 @@ class DartCamera:
 
     def get_exposure(self) -> float:
         """Get the exposure time in s."""
-        return self.camera.ExposureTime.GetValue() / 1e6
+        return getattr(self.camera, self.exposure_name).GetValue() / 1e6
 
     def set_exposure(self, value: float) -> None:
         """Set the exposure time in s."""
-        self.camera.ExposureTime.SetValue(value * 1e6)
+        getattr(self.camera, self.exposure_name).SetValue(value * 1e6)
 
     def get_roi(self) -> Tuple[float, float, float, float, int, int]:
         """Return x0, width, y0, height, xbin, ybin."""
@@ -165,7 +188,7 @@ class DartCamera:
         raise NotImplementedError("Not implemented")
 
     def get_all_attributes(self):
-        self.attributes
+        return self.attributes
 
     def get_attribute_value(self, name, error_on_missing=True):
         """Get the camera attribute with the given name"""
@@ -216,7 +239,10 @@ class DartCamera:
 
         Whenever a grab succeeded, the callback defined in :meth:`set_callback` is called.
         """
-        self.camera.AcquisitionFrameRate.SetValue(max_frame_rate)
+        try:
+            self.camera.AcquisitionFrameRate.SetValue(max_frame_rate)
+        except pylon.LogicalErrorException:
+            pass
         self.camera.StartGrabbing(
             pylon.GrabStrategy_LatestImageOnly, pylon.GrabLoop_ProvidedByInstantCamera
         )
