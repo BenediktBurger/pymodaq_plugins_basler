@@ -20,7 +20,7 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
     # Update the params
     params = DAQ_2DViewer_GenericPylablibCamera.params + [
         {'title': 'Automatic exposure:', 'name': 'auto_exposure', 'type': 'bool', 'value': False},
-        {'title': 'Gain (dB)', 'name': 'gain', 'type': 'float', 'value': 0, 'limits': [0, 18]},
+        {'title': 'Gain (dB)', 'name': 'gain', 'type': 'float', 'value': 0},#, 'limits': [0, 18]},
         {'title': 'Pixel size (um)', 'name': 'pixel_length', 'type': 'float', 'value': 1, 'default' : 1, 'visible': False},
     ]
     params[next((i for i, item in enumerate(params) if item["name"] == "camera_list"), None)]['limits'] = camera_list  # type: ignore
@@ -64,6 +64,12 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
             model = self.controller.camera.GetDeviceInfo().GetModelName()
             self.emit_status(ThreadCommand('Update_Status', [(f"No pixel length known for camera model '{model}', defaulting to user-chosen one"), 'log']))
             self.settings.child('pixel_length').show()
+
+        # Check gain mode
+        if self.controller.raw_gain:
+            self.settings.child('gain').setOpts(type="int")
+            self.settings.child('gain').setOpts(title="Gain (raw)")
+        self.settings.child('gain').setValue(self.controller.gain)
 
         # Get camera name
         self.settings.child('camera_info').setValue(self.controller.get_device_info()[1])

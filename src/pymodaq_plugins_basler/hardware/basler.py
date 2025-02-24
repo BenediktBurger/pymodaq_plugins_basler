@@ -41,6 +41,7 @@ class DartCamera:
         self.camera = pylon.InstantCamera()
         self._exposure = None
         self._gain = None
+        self.raw_gain = False
 
         # register configuration event handler
         self.configurationEventHandler = ConfigurationHandler()
@@ -83,6 +84,9 @@ class DartCamera:
             try:
                 if hasattr(self.camera, gain):
                     self._gain = getattr(self.camera, gain)
+
+                    if gain == "GainRaw":
+                        self.raw_gain = True
                     break
             except pylon.LogicalErrorException:
                 pass
@@ -139,12 +143,12 @@ class DartCamera:
         self._exposure.SetValue(value * 1e6)
 
     @property
-    def gain(self) -> float:
+    def gain(self) -> Union[float, int]:
         """Get the gain"""
         return self._gain.GetValue()
 
     @gain.setter
-    def gain(self, value: float) -> None:
+    def gain(self, value: Union[float, int]) -> None:
         """Set the gain"""
         self._gain.SetValue(value)
 
