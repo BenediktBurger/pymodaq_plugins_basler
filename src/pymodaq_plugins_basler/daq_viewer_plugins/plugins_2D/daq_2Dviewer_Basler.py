@@ -69,7 +69,7 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
         self.settings.child('camera_info').setValue(self.controller.get_device_info()[1])
 
         # Set exposure time
-        self.controller.set_exposure(self.settings.child('timing_opts', 'exposure_time').value() / 1000)
+        self.controller.exposure = self.settings.child('timing_opts', 'exposure_time').value() / 1000
 
         # FPS visibility
         self.settings.child('timing_opts', 'fps').setOpts(visible=self.settings.child('timing_opts', 'fps_on').value())
@@ -101,8 +101,10 @@ class DAQ_2DViewer_Basler(DAQ_2DViewer_GenericPylablibCamera):
         if param.name() == "auto_exposure":
             self.controller.camera.ExposureAuto.SetValue(
                 "Continuous" if self.settings['auto_exposure'] else "Off")
+        elif param.name() == "exposure_time":
+            self.controller.exposure = param.value()/1000
         elif param.name() == "gain":
-            getattr(self.controller.camera, self.controller.gain_name).SetValue(param.value())
+            self.controller.gain = param.value()
         elif param.name() == "pixel_length":
             self.controller.pixel_length = param.value()
         else:

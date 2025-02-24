@@ -59,5 +59,4 @@ Installation instructions
 =========================
 
 * You need the manufacturer's driver `Pylon <https://www.baslerweb.com/pylon>`_ for the cameras.
-* This package uses the work of a `genergic pylablib camera driver <https://github.com/rgeneaux/pymodaq_plugins_test_pylablib>`_, which is not yet available.
-  Relevant code is included in this package, so no additional installation needed.
+

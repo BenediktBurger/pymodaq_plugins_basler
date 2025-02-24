@@ -39,8 +39,8 @@ class DartCamera:
         # create camera object
         self.tlFactory = pylon.TlFactory.GetInstance()
         self.camera = pylon.InstantCamera()
-        self.exposure_name = ""
-        self.gain_name = ""
+        self._exposure = None
+        self._gain = None
 
         # register configuration event handler
         self.configurationEventHandler = ConfigurationHandler()
@@ -73,7 +73,7 @@ class DartCamera:
         for exp in possible_exposures:
             try:
                 if hasattr(self.camera, exp):
-                    self.exposure_name = exp
+                    self._exposure = getattr(self.camera, exp)
                     break
             except pylon.LogicalErrorException:
                 pass
@@ -82,7 +82,7 @@ class DartCamera:
         for gain in possible_gains:
             try:
                 if hasattr(self.camera, gain):
-                    self.gain_name = gain
+                    self._gain = getattr(self.camera, gain)
                     break
             except pylon.LogicalErrorException:
                 pass
@@ -128,13 +128,25 @@ class DartCamera:
             None,
         ]
 
-    def get_exposure(self) -> float:
+    @property
+    def exposure(self) -> float:
         """Get the exposure time in s."""
-        return getattr(self.camera, self.exposure_name).GetValue() / 1e6
+        return self._exposure.GetValue() / 1e6
 
-    def set_exposure(self, value: float) -> None:
+    @exposure.setter
+    def exposure(self, value: float) -> None:
         """Set the exposure time in s."""
-        getattr(self.camera, self.exposure_name).SetValue(value * 1e6)
+        self._exposure.SetValue(value * 1e6)
+
+    @property
+    def gain(self) -> float:
+        """Get the gain"""
+        return self._gain.GetValue()
+
+    @gain.setter
+    def gain(self, value: float) -> None:
+        """Set the gain"""
+        self._gain.SetValue(value)
 
     def get_roi(self) -> Tuple[float, float, float, float, int, int]:
         """Return x0, width, y0, height, xbin, ybin."""
