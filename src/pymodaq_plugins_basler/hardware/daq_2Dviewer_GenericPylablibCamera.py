@@ -6,7 +6,6 @@ from qtpy import QtWidgets, QtCore
 from time import perf_counter
 import numpy as np
 
-
 class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
     """
     IMPORTANT: THIS IS A GENERIC CLASS THAT DOES NOT WORK ON ITS OWN!
@@ -27,13 +26,13 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
         {'title': 'Image width', 'name': 'hdet', 'type': 'int', 'value': 1, 'readonly': True, 'default': 1},
         {'title': 'Image height', 'name': 'vdet', 'type': 'int', 'value': 1, 'readonly': True, 'default': 1},
         {'title': 'Timing', 'name': 'timing_opts', 'type': 'group', 'children':
-            [{'title': 'Exposure Time (ms)', 'name': 'exposure_time', 'type': 'int', 'value': 1, 'default': 1},
+            [{'title': 'Exposure Time (ms)', 'name': 'exposure_time', 'type': 'int', 'value': 100, 'default': 100},
              {'title': 'Compute FPS', 'name': 'fps_on', 'type': 'bool', 'value': True, 'default': True},
              {'title': 'FPS', 'name': 'fps', 'type': 'float', 'value': 0.0, 'readonly': True, 'default': 0.0}]
          }
     ]
     callback_signal = QtCore.Signal()
-    roi_pos_size = QtCore.QRectF(0, 0, 10, 10)
+    roi_info = None
     axes = []
 
     def init_controller(self):
@@ -41,7 +40,6 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
 
     def ini_attributes(self):
         self.controller: None
-        self.pixel_width = None  # pixel size in microns
         self.x_axis = None
         self.y_axis = None
         self.last_tick = 0.0  # time counter used to compute FPS
@@ -70,10 +68,8 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
                 # We handle ROI and binning separately for clarity
                 (old_x, _, old_y, _, xbin, ybin) = self.controller.get_roi()  # Get current binning
 
-                x0 = self.roi_pos_size.x()
-                y0 = self.roi_pos_size.y()
-                width = self.roi_pos_size.width()
-                height = self.roi_pos_size.height()
+                y0, x0 = self.roi_info.origin.coordinates
+                height, width = self.roi_info.size.coordinates
 
                 # Values need to be rescaled by binning factor and shifted by current x0,y0 to be correct.
                 new_x = (old_x + x0) * xbin
@@ -107,8 +103,8 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
                 self.update_rois(new_roi)
                 param.setValue(False)
 
-    def ROISelect(self, roi_pos_size):
-        self.roi_pos_size = roi_pos_size
+    def roi_select(self, roi_info, ind_viewer):
+        self.roi_info = roi_info
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -159,10 +155,6 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
         self.callback_thread.callback = callback
         self.callback_thread.start()
 
-        # Check if pixel width is available
-        if 'PixelWidth' in self.controller.get_all_attributes():
-            self.pixel_width = self.controller.get_attribute_value('PixelWidth')
-
         self._prepare_view()
 
         info = "Initialized camera"
@@ -184,12 +176,12 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
         self.settings.child('vdet').setValue(height)
         mock_data = np.zeros((width, height))
 
-        if self.pixel_width:  # if pixel_width is defined
-            scaling = self.pixel_width
+        if self.controller.pixel_length:  # if pixel_width is defined
+            scaling = self.controller.pixel_length
             unit = 'um'
         else:
             scaling = 1
-            unit = 'Pxls'
+            unit = 'pixels'
 
         self.x_axis = Axis(offset = vstart * scaling, scaling=scaling * xbin, size=width // xbin, label="X", units=unit, index=0)
 

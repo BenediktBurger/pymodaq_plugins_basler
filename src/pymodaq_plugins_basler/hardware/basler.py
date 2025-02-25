@@ -17,6 +17,8 @@ pixel_lengths: dict[str, float] = {
     "daA1280-54um": 3.75,
     "daA2500-14um": 2.2,
     "daA3840-45um": 2,
+    "acA640-120gm": 5.6,
+    "acA645-100gm": 5.6,
 }
 
 
@@ -37,6 +39,10 @@ class DartCamera:
         # create camera object
         self.tlFactory = pylon.TlFactory.GetInstance()
         self.camera = pylon.InstantCamera()
+        self._exposure = None
+        self._gain = None
+        self.raw_gain = False
+
         # register configuration event handler
         self.configurationEventHandler = ConfigurationHandler()
         self.camera.RegisterConfiguration(
@@ -61,6 +67,29 @@ class DartCamera:
         self.camera.Attach(device)
         self.camera.Open()
         self.attributes["PixelWidth"] = self.pixel_length
+        self.check_attribute_names()
+
+    def check_attribute_names(self):
+        possible_exposures = ["ExposureTime", "ExposureTimeAbs"]
+        for exp in possible_exposures:
+            try:
+                if hasattr(self.camera, exp):
+                    self._exposure = getattr(self.camera, exp)
+                    break
+            except pylon.LogicalErrorException:
+                pass
+
+        possible_gains = ["Gain", "GainRaw"]
+        for gain in possible_gains:
+            try:
+                if hasattr(self.camera, gain):
+                    self._gain = getattr(self.camera, gain)
+
+                    if gain == "GainRaw":
+                        self.raw_gain = True
+                    break
+            except pylon.LogicalErrorException:
+                pass
 
     def set_callback(
         self, callback: Callable[[NDArray], None], replace_all: bool = True
@@ -103,13 +132,25 @@ class DartCamera:
             None,
         ]
 
-    def get_exposure(self) -> float:
+    @property
+    def exposure(self) -> float:
         """Get the exposure time in s."""
-        return self.camera.ExposureTime.GetValue() / 1e6
+        return self._exposure.GetValue() / 1e6
 
-    def set_exposure(self, value: float) -> None:
+    @exposure.setter
+    def exposure(self, value: float) -> None:
         """Set the exposure time in s."""
-        self.camera.ExposureTime.SetValue(value * 1e6)
+        self._exposure.SetValue(value * 1e6)
+
+    @property
+    def gain(self) -> Union[float, int]:
+        """Get the gain"""
+        return self._gain.GetValue()
+
+    @gain.setter
+    def gain(self, value: Union[float, int]) -> None:
+        """Set the gain"""
+        self._gain.SetValue(value)
 
     def get_roi(self) -> Tuple[float, float, float, float, int, int]:
         """Return x0, width, y0, height, xbin, ybin."""
@@ -165,7 +206,7 @@ class DartCamera:
         raise NotImplementedError("Not implemented")
 
     def get_all_attributes(self):
-        self.attributes
+        return self.attributes
 
     def get_attribute_value(self, name, error_on_missing=True):
         """Get the camera attribute with the given name"""
@@ -216,7 +257,10 @@ class DartCamera:
 
         Whenever a grab succeeded, the callback defined in :meth:`set_callback` is called.
         """
-        self.camera.AcquisitionFrameRate.SetValue(max_frame_rate)
+        try:
+            self.camera.AcquisitionFrameRate.SetValue(max_frame_rate)
+        except pylon.LogicalErrorException:
+            pass
         self.camera.StartGrabbing(
             pylon.GrabStrategy_LatestImageOnly, pylon.GrabLoop_ProvidedByInstantCamera
         )
@@ -227,16 +271,20 @@ class DartCamera:
     @property
     def pixel_length(self) -> float:
         """Get the pixel length of the camera in µm.
-        
-        :raises: KeyError if the pixel length of the specific model is not known
+
+        Returns None if the pixel length of the specific model is not known
         """
         if self._pixel_length is None:
             model = self.camera.GetDeviceInfo().GetModelName()
             try:
                 self._pixel_length = pixel_lengths[model]
             except KeyError:
-                raise KeyError(f"No pixel length known for camera model '{model}'.")
+                self._pixel_length = None
         return self._pixel_length
+
+    @pixel_length.setter
+    def pixel_length(self, value):
+        self._pixel_length = value
 
 
 class ConfigurationHandler(pylon.ConfigurationEventHandler):

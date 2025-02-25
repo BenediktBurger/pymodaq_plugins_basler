@@ -14,12 +14,17 @@ pymodaq_plugins_basler
 .. image:: https://github.com/BenediktBurger/pymodaq_plugins_basler/actions/workflows/Test.yml/badge.svg
     :target: https://github.com/BenediktBurger/pymodaq_plugins_basler/actions/workflows/Test.yml
 
-Set of PyMoDAQ plugins for cameras by Basler.
+Set of PyMoDAQ plugins for cameras by Basler, using the pypylon library. It handles basic camera functionalities (gain, exposure, ROI).
+The data is emitted together with spatial axes corresponding either to pixels or to real-world units (um). The pixel size of different camera model is hardcoded in the hardware/basler.py file.
+If the camera model is not specified, the pixel size is set to 1 um and can be changed manually by the user in the interface.
+
+The plugin was tested using an acA640-120gm camera. It is compatible with PyMoDAQ 4.4.7.
 
 Authors
 =======
 
 * Benedikt Burger
+* Romain Geneaux
 
 
 Instruments
@@ -54,5 +59,4 @@ Installation instructions
 =========================
 
 * You need the manufacturer's driver `Pylon <https://www.baslerweb.com/pylon>`_ for the cameras.
-* This package uses the work of a `genergic pylablib camera driver <https://github.com/rgeneaux/pymodaq_plugins_test_pylablib>`_, which is not yet available.
-  Relevant code is included in this package, so no additional installation needed.
+
