@@ -1,8 +1,3 @@
-"""
-Copied (and slightly modified) from https://github.com/rgeneaux/pymodaq_plugins_test_pylablib
-"""
-
-
 from pymodaq.utils.daq_utils import ThreadCommand
 from pymodaq.utils.data import DataFromPlugins, Axis, DataToExport
 from pymodaq.control_modules.viewer_utility_classes import DAQ_Viewer_base, comon_parameters, main
@@ -10,7 +5,6 @@ from pymodaq.utils.parameter import Parameter
 from qtpy import QtWidgets, QtCore
 from time import perf_counter
 import numpy as np
-
 
 class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
     """
@@ -25,20 +19,20 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
 
     params = comon_parameters + [
         {'title': 'Camera:', 'name': 'camera_list', 'type': 'list', 'limits': []},
-        {'title': 'Camera model:', 'name': 'camera_info', 'type': 'str', 'value': '', 'readonly': True},
-        {'title': 'Update ROI', 'name': 'update_roi', 'type': 'bool_push', 'value': False},
-        {'title': 'Clear ROI+Bin', 'name': 'clear_roi', 'type': 'bool_push', 'value': False},
-        {'title': 'Binning', 'name': 'binning', 'type': 'list', 'limits': [1, 2]},
-        {'title': 'Image width', 'name': 'hdet', 'type': 'int', 'value': 1, 'readonly': True},
-        {'title': 'Image height', 'name': 'vdet', 'type': 'int', 'value': 1, 'readonly': True},
+        {'title': 'Camera model:', 'name': 'camera_info', 'type': 'str', 'value': '', 'readonly': True, 'default': ''},
+        {'title': 'Update ROI', 'name': 'update_roi', 'type': 'bool_push', 'value': False, 'default': False},
+        {'title': 'Clear ROI+Bin', 'name': 'clear_roi', 'type': 'bool_push', 'value': False, 'default': False},
+        {'title': 'Binning', 'name': 'binning', 'type': 'list', 'limits': [1, 2], 'default': 1},
+        {'title': 'Image width', 'name': 'hdet', 'type': 'int', 'value': 1, 'readonly': True, 'default': 1},
+        {'title': 'Image height', 'name': 'vdet', 'type': 'int', 'value': 1, 'readonly': True, 'default': 1},
         {'title': 'Timing', 'name': 'timing_opts', 'type': 'group', 'children':
-            [{'title': 'Exposure Time (ms)', 'name': 'exposure_time', 'type': 'int', 'value': 1},
-             {'title': 'Compute FPS', 'name': 'fps_on', 'type': 'bool', 'value': True},
-             {'title': 'FPS', 'name': 'fps', 'type': 'float', 'value': 0.0, 'readonly': True}]
+            [{'title': 'Exposure Time (ms)', 'name': 'exposure_time', 'type': 'int', 'value': 100, 'default': 100},
+             {'title': 'Compute FPS', 'name': 'fps_on', 'type': 'bool', 'value': True, 'default': True},
+             {'title': 'FPS', 'name': 'fps', 'type': 'float', 'value': 0.0, 'readonly': True, 'default': 0.0}]
          }
     ]
     callback_signal = QtCore.Signal()
-    roi_pos_size = QtCore.QRectF(0, 0, 10, 10)
+    roi_info = None
     axes = []
 
     def init_controller(self):
@@ -46,7 +40,6 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
 
     def ini_attributes(self):
         self.controller: None
-
         self.x_axis = None
         self.y_axis = None
         self.last_tick = 0.0  # time counter used to compute FPS
@@ -75,10 +68,8 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
                 # We handle ROI and binning separately for clarity
                 (old_x, _, old_y, _, xbin, ybin) = self.controller.get_roi()  # Get current binning
 
-                x0 = self.roi_pos_size.x()
-                y0 = self.roi_pos_size.y()
-                width = self.roi_pos_size.width()
-                height = self.roi_pos_size.height()
+                y0, x0 = self.roi_info.origin.coordinates
+                height, width = self.roi_info.size.coordinates
 
                 # Values need to be rescaled by binning factor and shifted by current x0,y0 to be correct.
                 new_x = (old_x + x0) * xbin
@@ -112,8 +103,8 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
                 self.update_rois(new_roi)
                 param.setValue(False)
 
-    def ROISelect(self, roi_pos_size):
-        self.roi_pos_size = roi_pos_size
+    def roi_select(self, roi_info, ind_viewer):
+        self.roi_info = roi_info
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -173,14 +164,11 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
     def _prepare_view(self):
         """Preparing a data viewer by emitting temporary data. Typically, needs to be called whenever the
         ROIs are changed"""
-        # wx = self.settings.child('rois', 'width').value()
-        # wy = self.settings.child('rois', 'height').value()
-        # bx = self.settings.child('rois', 'x_binning').value()
-        # by = self.settings.child('rois', 'y_binning').value()
-        #
-        # sizex = wx // bx
-        # sizey = wy // by
-        (hstart, hend, vstart, vend, *_) = self.controller.get_roi()
+        (hstart, hend, vstart, vend, *binning) = self.controller.get_roi()
+        try:
+            xbin, ybin = binning
+        except ValueError:  # some Pylablib `get_roi` do return just four values instead of six
+            xbin = ybin = 1
         height = hend - hstart
         width = vend - vstart
 
@@ -188,11 +176,18 @@ class DAQ_2DViewer_GenericPylablibCamera(DAQ_Viewer_base):
         self.settings.child('vdet').setValue(height)
         mock_data = np.zeros((width, height))
 
-        self.x_axis = Axis(data=np.linspace(0, width, width, endpoint=False), label='Pixels', index=0)
+        if self.controller.pixel_length:  # if pixel_width is defined
+            scaling = self.controller.pixel_length
+            unit = 'um'
+        else:
+            scaling = 1
+            unit = 'pixels'
+
+        self.x_axis = Axis(offset = vstart * scaling, scaling=scaling * xbin, size=width // xbin, label="X", units=unit, index=0)
 
         if width != 1 and height != 1:
             data_shape = 'Data2D'
-            self.y_axis = Axis(data=np.linspace(0, height, height, endpoint=False), label='Pixels', index=1)
+            self.y_axis = Axis(offset= hstart * scaling, scaling=scaling * ybin, size=height // ybin, label='Y', units=unit, index=1)
             self.axes = [self.x_axis, self.y_axis]
 
         else:
